@@ -1,6 +1,5 @@
 package prjavafxchat_cliente.network;
 
-import controller.ClienteVistaController;
 import model.Usuario;
 
 import java.io.BufferedReader;
@@ -10,6 +9,7 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
+import prjavafxchat_cliente.controller.ClienteVistaController;
 
 public class ClienteSocket {
 
@@ -104,7 +104,7 @@ public class ClienteSocket {
         return resultado;
     }
 
-    //Convierte "Pedro/Anonimo,Juan/Profesor" en lista de Usuario
+    //Pasa los usuarios a la lista, parseandola 
     private List<Usuario> parsearUsuarios(String contenido) {
         List<Usuario> resultado = new ArrayList<Usuario>();
         if (contenido == null || contenido.isEmpty()) {
