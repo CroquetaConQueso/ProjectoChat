@@ -66,7 +66,7 @@ public class ServidorChat {
             //Sala inicial
             String salaInicial = "General";
             //Pojo con los valores
-            cliente = new ClienteInfo("Anonimo", salaInicial, salida, "Anonimo");
+            cliente = new ClienteInfo("Anonimo", salaInicial, salida, "Usuario");
 
             anadirClienteASala(cliente, salaInicial);
             salida.println("Bienvenido a la sala General. Usa /name para cambiar nombre y /join para cambiar de sala. Usa /list y /users para obtener informacion.");
@@ -165,9 +165,13 @@ public class ServidorChat {
             cliente.getOut().println("Debes indicar una sala. Ejemplo: /join General");
             return;
         }
+        //Se toma la anterior
         String salaAnterior = cliente.getSalaActual();
+        //Se mueve
         moverClienteASala(cliente, salaAnterior, nuevaSala);
+
         cliente.getOut().println("Te has movido a la sala: " + cliente.getSalaActual());
+        //Se debe de hacer dos veces porque la asala anterior debe de ser actualizada y la nueva tambien
         enviarListaUsuariosSala(salaAnterior);
         enviarListaUsuariosSala(cliente.getSalaActual());
         enviarListaSalas(cliente);
