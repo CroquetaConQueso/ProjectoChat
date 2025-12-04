@@ -1,5 +1,6 @@
 package prjavafxchat_cliente.network;
 
+import prjavafxchat_cliente.controller.ClienteVistaController;
 import model.Usuario;
 
 import java.io.BufferedReader;
@@ -9,7 +10,6 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
-import prjavafxchat_cliente.controller.ClienteVistaController;
 
 public class ClienteSocket {
 
@@ -22,6 +22,10 @@ public class ClienteSocket {
     private ClienteVistaController controller;
     private PrintWriter out;
 
+    private Socket socket;
+    private BufferedReader in;
+    private volatile boolean ejecutando = false;
+
     public ClienteSocket(ClienteVistaController controller) {
         this.controller = controller;
     }
@@ -29,13 +33,11 @@ public class ClienteSocket {
     //Conexion y bucle de lectura
     public void conectar() {
         new Thread(() -> {
-            Socket socket = null;
-            BufferedReader in = null;
-
             try {
                 socket = new Socket(HOST, PORT);
                 out = new PrintWriter(socket.getOutputStream(), true);
                 in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                ejecutando = true;
 
                 controller.recibirMensaje("Conectado al servidor " + HOST + ":" + PORT);
 
@@ -44,27 +46,14 @@ public class ClienteSocket {
                 out.println("/users");
 
                 String linea;
-                while ((linea = in.readLine()) != null) {
+                while (ejecutando && (linea = in.readLine()) != null) {
                     procesarLineaServidor(linea);
                 }
 
             } catch (IOException e) {
                 controller.recibirMensaje("Error: " + e.getMessage());
-                controller.desactivarControles();
             } finally {
-                if (out != null) {
-                    out.close();
-                }
-                try {
-                    if (in != null) {
-                        in.close();
-                    }
-                    if (socket != null && !socket.isClosed()) {
-                        socket.close();
-                    }
-                } catch (IOException e) {
-                    //Nada especial que hacer aqui
-                }
+                cerrarInterno();
                 controller.desactivarControles();
             }
         }).start();
@@ -83,6 +72,18 @@ public class ClienteSocket {
             controller.actualizarUsuarios(usuarios);
 
         } else {
+            String prefNombre = "Tu nuevo nombre es: ";
+            if (linea.startsWith(prefNombre)) {
+                String nuevoNombre = linea.substring(prefNombre.length()).trim();
+                controller.actualizarNombreLocal(nuevoNombre);
+            }
+
+            String prefSala = "Te has movido a la sala: ";
+            if (linea.startsWith(prefSala)) {
+                String salaNueva = linea.substring(prefSala.length()).trim();
+                controller.actualizarSalaActual(salaNueva);
+            }
+
             //Mensaje normal, bienvenida o errores
             controller.recibirMensaje(linea);
         }
@@ -104,7 +105,7 @@ public class ClienteSocket {
         return resultado;
     }
 
-    //Pasa los usuarios a la lista, parseandola 
+    //Convierte "Pedro/Anonimo,Juan/Profesor" en lista de Usuario
     private List<Usuario> parsearUsuarios(String contenido) {
         List<Usuario> resultado = new ArrayList<Usuario>();
         if (contenido == null || contenido.isEmpty()) {
@@ -123,7 +124,6 @@ public class ClienteSocket {
                 Usuario u = new Usuario(nombre, rol);
                 resultado.add(u);
             }
-
         }
         return resultado;
     }
@@ -131,6 +131,36 @@ public class ClienteSocket {
     public void enviar(String msg) {
         if (out != null) {
             out.println(msg);
+        }
+    }
+
+    //Llamado desde el controlador cuando se cierra la ventana
+    public void cerrar() {
+        ejecutando = false;
+        cerrarInterno();
+    }
+
+    private void cerrarInterno() {
+        try {
+            if (out != null) {
+                out.close();
+            }
+        } catch (Exception e) {
+            //Nada especial
+        }
+        try {
+            if (in != null) {
+                in.close();
+            }
+        } catch (Exception e) {
+            //Nada especial
+        }
+        try {
+            if (socket != null && !socket.isClosed()) {
+                socket.close();
+            }
+        } catch (Exception e) {
+            //Nada especial
         }
     }
 }

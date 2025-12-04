@@ -19,6 +19,7 @@ public class ServidorChat {
 
     private ServerSocket serverSocket;
     private Map<String, List<ClienteInfo>> salas = new HashMap<String, List<ClienteInfo>>();
+    private int contadorAnonimos = 0;
 
     public ServidorChat(int puerto) throws IOException {
         serverSocket = new ServerSocket(puerto);
@@ -54,6 +55,11 @@ public class ServidorChat {
         }
     }
 
+    private synchronized String generarNombrePorDefecto() {
+        contadorAnonimos++;
+        return "Anonimo-" + contadorAnonimos;
+    }
+
     private void manejarCliente(Socket socket) {
         ClienteInfo cliente = null;
 
@@ -65,11 +71,15 @@ public class ServidorChat {
 
             //Sala inicial
             String salaInicial = "General";
+            String nombrePorDefecto = generarNombrePorDefecto();
             //Pojo con los valores
-            cliente = new ClienteInfo("Anonimo", salaInicial, salida, "Usuario");
+            cliente = new ClienteInfo(nombrePorDefecto, salaInicial, salida, "Usuario");
 
             anadirClienteASala(cliente, salaInicial);
+
             salida.println("Bienvenido a la sala General. Usa /name para cambiar nombre y /join para cambiar de sala. Usa /list y /users para obtener informacion.");
+            // Indicamos tambien el nombre asignado para que el cliente lo muestre
+            salida.println("Tu nuevo nombre es: " + nombrePorDefecto);
 
             //Se enseñan todas las salas
             enviarListaSalas(cliente);
@@ -153,11 +163,12 @@ public class ServidorChat {
         //El argumento ya contiene solo el nombre introducido tras /name
         if (nuevoNombre.isEmpty()) {
             cliente.getOut().println("Debes de tener un nombre. Intentalo de nuevo.");
-        } else {
-            cliente.setNombre(nuevoNombre);
-            cliente.getOut().println("Tu nuevo nombre es: " + nuevoNombre);
-            enviarListaUsuariosSala(cliente.getSalaActual());
+            //Return vacio porque no se que poner
+            return;
         }
+        cliente.setNombre(nuevoNombre);
+        cliente.getOut().println("Tu nuevo nombre es: " + nuevoNombre);
+        enviarListaUsuariosSala(cliente.getSalaActual());
     }
 
     private void manejarComandoJoin(ClienteInfo cliente, String nuevaSala) {
@@ -165,13 +176,9 @@ public class ServidorChat {
             cliente.getOut().println("Debes indicar una sala. Ejemplo: /join General");
             return;
         }
-        //Se toma la anterior
         String salaAnterior = cliente.getSalaActual();
-        //Se mueve
         moverClienteASala(cliente, salaAnterior, nuevaSala);
-
         cliente.getOut().println("Te has movido a la sala: " + cliente.getSalaActual());
-        //Se debe de hacer dos veces porque la asala anterior debe de ser actualizada y la nueva tambien
         enviarListaUsuariosSala(salaAnterior);
         enviarListaUsuariosSala(cliente.getSalaActual());
         enviarListaSalas(cliente);
@@ -209,6 +216,7 @@ public class ServidorChat {
 
         //Se toman los keys y se formatea el string para mostrar todos los valores
         StringBuilder sb = new StringBuilder();
+
         for (int i = 0; i < nombresSalas.size(); i++) {
             sb.append(nombresSalas.get(i));
             if (i < nombresSalas.size() - 1) {
@@ -233,11 +241,7 @@ public class ServidorChat {
             }
         }
         String mensaje = PREFIJO_USUARIOS + sb.toString();
-
-        //Reutilizamos la misma lista para enviar el mensaje a todos los clientes de la sala
-        for (ClienteInfo c : lista) {
-            c.getOut().println(mensaje);
-        }
+        enviarMensajeSala(nombreSala, mensaje);
     }
 
     private synchronized void enviarMensajeSala(String nombreSala, String mensaje) {

@@ -13,12 +13,12 @@ import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.cell.PropertyValueFactory;
 
-import model.Usuario;
-import prjavafxchat_cliente.network.ClienteSocket;
-
 import java.net.URL;
 import java.util.List;
 import java.util.ResourceBundle;
+
+import model.Usuario;
+import prjavafxchat_cliente.network.ClienteSocket;
 
 public class ClienteVistaController implements Initializable {
 
@@ -49,16 +49,27 @@ public class ClienteVistaController implements Initializable {
     private ClienteSocket cliente;
     private ObservableList<Usuario> usuariosObservable = FXCollections.observableArrayList();
 
+    // Nombre local mostrado en el textfield
+    private String nombreActual = "Anonimo";
+
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
+
         if (tablaUsuarios != null) {
             tablaUsuarios.setItems(usuariosObservable);
+            // Ajuste de columnas para ocupar todo el ancho
+            tablaUsuarios.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         }
         if (colNombre != null) {
             colNombre.setCellValueFactory(new PropertyValueFactory<>("nombre"));
         }
         if (colRol != null) {
             colRol.setCellValueFactory(new PropertyValueFactory<>("rol"));
+        }
+
+        // Nombre inicial
+        if (nombreField != null) {
+            nombreField.setText(nombreActual);
         }
 
         cliente = new ClienteSocket(this);
@@ -100,9 +111,11 @@ public class ClienteVistaController implements Initializable {
         if (nombre == null || nombre.isEmpty()) {
             return;
         }
+        nombreActual = nombre;
         if (cliente != null) {
             cliente.enviar("/name " + nombre);
         }
+        nombreField.setText(nombreActual);
     }
 
     @FXML
@@ -130,8 +143,12 @@ public class ClienteVistaController implements Initializable {
     public void actualizarSalas(List<String> salas) {
         Platform.runLater(() -> {
             if (salasChoiceBox != null) {
+                String seleccionAnterior = salasChoiceBox.getValue();
                 salasChoiceBox.getItems().setAll(salas);
-                if (!salas.isEmpty() && salasChoiceBox.getValue() == null) {
+
+                if (seleccionAnterior != null && salas.contains(seleccionAnterior)) {
+                    salasChoiceBox.setValue(seleccionAnterior);
+                } else if (!salas.isEmpty()) {
                     salasChoiceBox.setValue(salas.get(0));
                 }
             }
@@ -141,6 +158,28 @@ public class ClienteVistaController implements Initializable {
     public void actualizarUsuarios(List<Usuario> listaUsuarios) {
         Platform.runLater(() -> {
             usuariosObservable.setAll(listaUsuarios);
+        });
+    }
+
+    // Se llamara cuando el servidor confirme el cambio de nombre
+    public void actualizarNombreLocal(String nuevoNombre) {
+        nombreActual = nuevoNombre;
+        Platform.runLater(() -> {
+            if (nombreField != null) {
+                nombreField.setText(nombreActual);
+            }
+        });
+    }
+
+    // Se llamara cuando el servidor confirme el cambio de sala
+    public void actualizarSalaActual(String salaNueva) {
+        Platform.runLater(() -> {
+            if (salasChoiceBox != null) {
+                if (!salasChoiceBox.getItems().contains(salaNueva)) {
+                    salasChoiceBox.getItems().add(salaNueva);
+                }
+                salasChoiceBox.setValue(salaNueva);
+            }
         });
     }
 
@@ -159,5 +198,12 @@ public class ClienteVistaController implements Initializable {
                 botonUnirse.setDisable(true);
             }
         });
+    }
+
+    // Llamado desde Main cuando se cierra la ventana
+    public void cerrarAplicacion() {
+        if (cliente != null) {
+            cliente.cerrar();
+        }
     }
 }
